@@ -28,21 +28,31 @@ class UrlGetter(object):
 
 class LinkGetter(object):
 
-    _linked_pages = {}
+    _page_nodes = []
+    _page_links = []
 
     @classmethod
     def find_linked_pages(cls, page_name, current_search_depth=0, max_search_depth=2, reset=False):
         if reset:
-            cls._linked_pages = {}
+            cls._page_nodes = []
+            cls._page_links = []
 
-        if current_search_depth <= max_search_depth and page_name not in cls._linked_pages:
+        page_node = {
+            "name": page_name
+        }
+
+        if current_search_depth <= max_search_depth and page_node not in cls._page_nodes:
+            cls._page_nodes.append(page_node)
             html = UrlGetter.get_html(page_name)
             if html is not None:
                 linked_pages = set(
-                    re.findall(r"href=(?:\"|\')/wiki/([^:]+?)(?:\"|\')", html))
+                    re.findall(r"href=(?:\"|\')/wiki/([^:#\"\']+)[^:]*?(?:\"|\')", html))
                 linked_pages -= set(BLACK_LIST + [page_name])
-                cls._linked_pages[page_name] = linked_pages
                 for linked_page in linked_pages:
+                    cls._page_links.append({
+                        "source_name": page_name,
+                        "target_name": linked_page
+                    })
                     cls.find_linked_pages(
                         linked_page,
                         current_search_depth=current_search_depth + 1,
@@ -52,8 +62,9 @@ class LinkGetter(object):
     def get_linked_pages(cls, start_page_name, max_search_depth, reset=False):
         cls.find_linked_pages(start_page_name, current_search_depth=0,
                               max_search_depth=max_search_depth, reset=reset)
-        return cls._linked_pages
+        return cls._page_nodes, cls._page_links
 
 if __name__ == "__main__":
-    links = LinkGetter.get_linked_pages("Python", 2, reset=True)
-    print(links.keys())
+    nodes, links = LinkGetter.get_linked_pages("Python", 1, reset=True)
+    print(nodes)
+    print(links)
