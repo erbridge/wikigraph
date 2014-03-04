@@ -1,3 +1,5 @@
+import json
+import os.path
 import re
 from urllib.robotparser import RobotFileParser
 
@@ -59,12 +61,26 @@ class LinkGetter(object):
                         max_search_depth=max_search_depth)
 
     @classmethod
-    def get_linked_pages(cls, start_page_name, max_search_depth, reset=False):
+    def get_linked_pages(cls, start_page_name, max_search_depth, file_name=None, reset=False):
+        if not reset and file_name and os.path.isfile(file_name):
+            with open(file_name, "r") as in_file:
+                data = json.load(in_file)
+            cls._page_nodes = data.get("nodes")
+            cls._page_links = data.get("links")
+
         cls.find_linked_pages(start_page_name, current_search_depth=0,
                               max_search_depth=max_search_depth, reset=reset)
+
+        if file_name:
+            data = {
+                "nodes": cls._page_nodes,
+                "links": cls._page_links
+            }
+            with open(file_name, "w") as out_file:
+                json.dump(data, out_file, indent=4)
+
         return cls._page_nodes, cls._page_links
 
+
 if __name__ == "__main__":
-    nodes, links = LinkGetter.get_linked_pages("Python", 1, reset=True)
-    print(nodes)
-    print(links)
+    LinkGetter.get_linked_pages("Python", 1, file_name="data/data.json")
