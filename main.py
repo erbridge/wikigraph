@@ -4,11 +4,12 @@ import re
 from urllib.robotparser import RobotFileParser
 
 import requests
+from requests_toolbelt import user_agent
 
 
 ROOT_URL = "http://en.wikipedia.org/wiki/"
 ROBOTS_URL = "http://en.wikipedia.org/robots.txt"
-USERAGENT = "Wikigraph"
+USERAGENT = user_agent("Wikigraph", "0.0.1")
 BLACK_LIST = [
     "Main_Page"
 ]
@@ -17,12 +18,15 @@ BLACK_LIST = [
 class UrlGetter(object):
 
     _robot_parser = RobotFileParser(url=ROBOTS_URL)
+    _headers = {
+        "User-Agent": USERAGENT
+    }
 
     @classmethod
     def get_html(cls, page_name):
         url = ROOT_URL + page_name
         if cls._robot_parser.can_fetch(USERAGENT, url) and url not in BLACK_LIST:
-            response = requests.get(url)
+            response = requests.get(url, headers=cls._headers)
             return response.text
         else:
             return None
