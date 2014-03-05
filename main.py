@@ -124,4 +124,3 @@ class LinkGetter(object):
 if __name__ == "__main__":
     LinkGetter.get_linked_pages(
         1, start_page_name="Python", file_name="data/data.json")
-
