@@ -61,6 +61,6 @@
                     .attr("cy", function(node) { return node.y; });
             });
         });
-});
+    });
 })();
 
