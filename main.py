@@ -1,6 +1,8 @@
 import json
 import os.path
 import re
+import signal
+import sys
 from urllib.robotparser import RobotFileParser
 
 import requests
@@ -32,10 +34,22 @@ class UrlGetter(object):
             return None
 
 
-class LinkGetter(object):
+class MetaLinkGetter(type):
+
+    def __init__(cls, name, bases, d):
+        type.__init__(cls, name, bases, d)
+        signal.signal(signal.SIGINT, cls.interrupt_handler)
+
+
+class LinkGetter(object, metaclass=MetaLinkGetter):
 
     _page_nodes = []
     _page_links = []
+    _interrupt = False
+
+    @classmethod
+    def interrupt_handler(cls, signal, frame):
+        cls._interrupt = True
 
     @classmethod
     def find_linked_pages(cls, page_name, current_search_depth=0, max_search_depth=2, reset=False, was_leaf=False):
@@ -59,12 +73,18 @@ class LinkGetter(object):
             if old_page_node in cls._page_nodes:
                 cls._page_nodes.remove(old_page_node)
 
+            if cls._interrupt:
+                page_node["leaf"] = True
+
             if page_node not in cls._page_nodes:
                 cls._page_nodes.append(page_node)
 
+            if cls._interrupt:
+                return
+
             if not leaf:
                 html = UrlGetter.get_html(page_name)
-                if html is not None:
+                if html:
                     linked_pages = set(
                         re.findall(r"href=(?:\"|\')/wiki/([^:#\"\']+)[^:]*?(?:\"|\')", html))
                     linked_pages -= set(BLACK_LIST + [page_name])
@@ -94,7 +114,7 @@ class LinkGetter(object):
 
         if continue_search:
             for node in cls._page_nodes:
-                if node.get("leaf"):
+                if not cls._interrupt and node.get("leaf"):
                     cls.find_linked_pages(
                         node.get("name"),
                         current_search_depth=0,
@@ -102,7 +122,7 @@ class LinkGetter(object):
                         reset=False,
                         was_leaf=True)
 
-        if start_page_name:
+        if not cls._interrupt and start_page_name:
             cls.find_linked_pages(
                 start_page_name,
                 current_search_depth=0,
@@ -117,6 +137,9 @@ class LinkGetter(object):
             }
             with open(file_name, "w") as out_file:
                 json.dump(data, out_file, indent=4)
+
+        if cls._interrupt:
+            sys.exit(1)
 
         return cls._page_nodes, cls._page_links
 
